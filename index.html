@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Générateur de cartes Dobble</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eef2f8;
+    --panel: #ffffff;
+    --ink: #0f1e3c;
+    --muted: #55657f;
+    --line: #d3dbe8;
+    --accent: #d9480f;
+    --accent-ink: #ffffff;
+    --blue: #1f4fd8;
+    --ok: #17803d;
+    --warn: #b4540a;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1322;
+      --panel: #141f38;
+      --ink: #eaf0fb;
+      --muted: #9aa9c4;
+      --line: #27365a;
+      --accent: #ff7a33;
+      --accent-ink: #1a0d03;
+      --blue: #7da2ff;
+      --ok: #4ade80;
+      --warn: #fbbf24;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  header {
+    display: flex; align-items: center; gap: 20px;
+    padding: 28px clamp(16px, 4vw, 48px) 8px;
+  }
+  #logo {
+    width: 96px; height: 96px; flex: none; cursor: pointer;
+    border-radius: 50%; box-shadow: 0 0 0 3px var(--ink);
+    background: #fff;
+  }
+  #logo:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible, .drop:focus-visible {
+    outline: 3px solid var(--blue); outline-offset: 2px;
+  }
+  h1 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+  header p { margin: 6px 0 0; color: var(--muted); max-width: 56ch; }
+
+  .layout {
+    display: grid; grid-template-columns: 360px 1fr; gap: 24px;
+    padding: 20px clamp(16px, 4vw, 48px) 64px; align-items: start;
+  }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+  aside { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 16px; }
+  @media (max-width: 900px) { aside { position: static; } }
+  section.panel {
+    background: var(--panel); border: 1.5px solid var(--line); border-radius: 14px; padding: 16px 18px;
+  }
+  h2 { margin: 0 0 10px; font-size: 1.05rem; font-weight: 700; }
+
+  .drop {
+    display: block; border: 2px dashed var(--line); border-radius: 10px; padding: 18px 12px;
+    text-align: center; color: var(--muted); cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .drop.over, .drop:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .drop strong { color: var(--ink); }
+  .drop input { display: none; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; max-height: 190px; overflow: auto; }
+  .chip { position: relative; width: 44px; height: 44px; border-radius: 8px; border: 1px solid var(--line); background: #fff; }
+  .chip img { width: 100%; height: 100%; object-fit: contain; border-radius: 7px; display: block; }
+  .chip button {
+    position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; padding: 0;
+    border-radius: 50%; border: none; background: var(--ink); color: var(--bg);
+    font-size: 12px; line-height: 18px; cursor: pointer; display: none;
+  }
+  .chip:hover button, .chip:focus-within button { display: block; }
+  .count { margin: 8px 0 0; font-size: .9rem; color: var(--muted); }
+  .linkbtn { background: none; border: none; color: var(--blue); cursor: pointer; padding: 0; font: inherit; text-decoration: underline; }
+
+  .field { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; margin-bottom: 12px; }
+  .field.full { grid-template-columns: 1fr; }
+  label { font-size: .95rem; }
+  select, input[type=number] {
+    font: inherit; color: var(--ink); background: var(--bg);
+    border: 1.5px solid var(--line); border-radius: 8px; padding: 6px 10px; min-width: 0;
+  }
+  input[type=number] { width: 96px; }
+  select { max-width: 100%; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .check { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 10px; font-size: .95rem; }
+  .check input { margin-top: 4px; accent-color: var(--accent); }
+  .hint { color: var(--muted); font-size: .85rem; margin: 0; }
+
+  .btn {
+    font: inherit; font-weight: 700; border: none; border-radius: 10px; padding: 11px 16px; cursor: pointer;
+    background: var(--accent); color: var(--accent-ink); width: 100%;
+  }
+  .btn.secondary { background: transparent; color: var(--ink); border: 2px solid var(--ink); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn + .btn { margin-top: 8px; }
+  .row { display: flex; gap: 8px; }
+  .row .btn { margin-top: 0; }
+
+  .status { margin: 0 0 16px; padding: 12px 16px; border-radius: 12px; background: var(--panel); border: 1.5px solid var(--line); }
+  .status p { margin: 0; }
+  .status p + p { margin-top: 4px; }
+  .status .ok { color: var(--ok); font-weight: 500; }
+  .status .warn { color: var(--warn); font-weight: 500; }
+
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 18px; }
+  #grid canvas { width: 100%; height: auto; display: block; aspect-ratio: 1; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+
+<header>
+  <canvas id="logo" width="192" height="192" title="Clique pour changer la carte" aria-label="Exemple de carte, clique pour en générer une autre" tabindex="0"></canvas>
+  <div>
+    <h1>Générateur de cartes Dobble</h1>
+    <p>Ajoute tes images, choisis le nombre d’images par carte, puis télécharge le jeu en PDF prêt à imprimer. Tout se passe dans ton navigateur.</p>
+  </div>
+</header>
+
+<div class="layout">
+  <aside>
+    <section class="panel">
+      <h2>Tes images</h2>
+      <label class="drop" id="drop" tabindex="0">
+        <input type="file" id="files" accept="image/*" multiple>
+        <strong>Dépose tes images ici</strong><br>ou clique pour les choisir (PNG, JPG, SVG, WebP)
+      </label>
+      <div class="chips" id="chips"></div>
+      <p class="count" id="count"></p>
+    </section>
+
+    <section class="panel">
+      <h2>Paramètres du jeu</h2>
+      <div class="field full">
+        <label for="n">Images par carte</label>
+        <select id="n"></select>
+      </div>
+      <div class="field">
+        <label for="cards">Nombre de cartes</label>
+        <input type="number" id="cards" min="2" step="1">
+      </div>
+      <p class="hint" style="margin-bottom:12px"><button class="linkbtn" id="classic" type="button">Dobble classique</button> : 8 images par carte, 55 cartes.</p>
+      <div class="check">
+        <input type="checkbox" id="fill" checked>
+        <label for="fill">Compléter avec des emojis s’il manque des images</label>
+      </div>
+      <div class="check">
+        <input type="checkbox" id="rotate" checked>
+        <label for="rotate">Faire pivoter les images</label>
+      </div>
+      <div class="field full">
+        <label for="variation">Variation de taille</label>
+        <input type="range" id="variation" min="0" max="100" value="60">
+      </div>
+      <div class="field">
+        <label for="seed">Graine aléatoire</label>
+        <input type="number" id="seed" min="1" step="1" value="1">
+      </div>
+      <button class="btn secondary" id="shuffle" type="button">Mélanger les cartes</button>
+    </section>
+
+    <section class="panel">
+      <h2>Exporter</h2>
+      <div class="field">
+        <label for="diam">Diamètre des cartes (mm)</label>
+        <input type="number" id="diam" min="30" max="190" value="80">
+      </div>
+      <div class="check">
+        <input type="checkbox" id="border" checked>
+        <label for="border">Contour de la carte (aide à la découpe)</label>
+      </div>
+      <button class="btn" id="pdf" type="button">Télécharger le PDF (A4)</button>
+      <button class="btn secondary" id="zip" type="button">Télécharger les PNG (.zip)</button>
+    </section>
+  </aside>
+
+  <main>
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+    <div id="grid"></div>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+"use strict";
+
+/* ---------- Outils ---------- */
+const $ = (id) => document.getElementById(id);
+const rng32 = (a) => () => {
+  a |= 0; a = (a + 0x6D2B79F5) | 0;
+  let t = Math.imul(a ^ (a >>> 15), 1 | a);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+function shuffle(arr, rnd) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+const pause = () => new Promise((r) => setTimeout(r));
+
+/* ---------- Corps finis GF(q) ---------- */
+// [p, k, polynôme irréductible x^k + c0 + c1 x + ...]
+const FIELD_DEFS = {
+  2: [2, 1], 3: [3, 1], 4: [2, 2, [1, 1]], 5: [5, 1], 7: [7, 1],
+  8: [2, 3, [1, 1, 0]], 9: [3, 2, [1, 0]], 11: [11, 1], 13: [13, 1],
+};
+function makeField(q) {
+  const [p, k, mod] = FIELD_DEFS[q];
+  const dig = (a) => { const d = []; for (let i = 0; i < k; i++) { d.push(a % p); a = Math.floor(a / p); } return d; };
+  const und = (d) => d.reduce((s, x, i) => s + x * p ** i, 0);
+  const add = (a, b) => { const A = dig(a), B = dig(b); return und(A.map((x, i) => (x + B[i]) % p)); };
+  const mul = (a, b) => {
+    if (k === 1) return (a * b) % p;
+    const A = dig(a), B = dig(b), res = Array(2 * k - 1).fill(0);
+    for (let i = 0; i < k; i++) for (let j = 0; j < k; j++) res[i + j] = (res[i + j] + A[i] * B[j]) % p;
+    for (let deg = 2 * k - 2; deg >= k; deg--) {
+      const c = res[deg];
+      if (c) {
+        res[deg] = 0;
+        for (let i = 0; i < k; i++) res[deg - k + i] = (((res[deg - k + i] - c * mod[i]) % p) + p) % p;
+      }
+    }
+    return und(res.slice(0, k));
+  };
+  const A = [], M = [];
+  for (let a = 0; a < q; a++) { A.push([]); M.push([]); for (let b = 0; b < q; b++) { A[a].push(add(a, b)); M[a].push(mul(a, b)); } }
+  return { add: (a, b) => A[a][b], mul: (a, b) => M[a][b] };
+}
+
+/* Plan projectif d’ordre q : q²+q+1 points, q²+q+1 droites, q+1 points par droite.
+   Chaque droite = une carte, chaque point = une image. */
+function buildPlane(q) {
+  const F = makeField(q);
+  const lines = [];
+  for (let m = 0; m < q; m++) {
+    for (let b = 0; b < q; b++) {
+      const line = [];
+      for (let x = 0; x < q; x++) line.push(x * q + F.add(F.mul(m, x), b));
+      line.push(q * q + m);
+      lines.push(line);
+    }
+  }
+  for (let c = 0; c < q; c++) {
+    const line = [];
+    for (let y = 0; y < q; y++) line.push(c * q + y);
+    line.push(q * q + q);
+    lines.push(line);
+  }
+  const inf = [];
+  for (let m = 0; m <= q; m++) inf.push(q * q + m);
+  lines.push(inf);
+  return lines;
+}
+
+/* ---------- Emojis de secours ---------- */
+const EMOJIS = [];
+const addRange = (a, b) => { for (let c = a; c <= b; c++) EMOJIS.push(String.fromCodePoint(c)); };
+addRange(0x1F400, 0x1F43E); addRange(0x1F345, 0x1F37B); addRange(0x1F600, 0x1F64F); addRange(0x1F3A0, 0x1F3C4);
+const emojiCache = new Map();
+function emojiImage(ch) {
+  if (emojiCache.has(ch)) return emojiCache.get(ch);
+  const c = document.createElement("canvas");
+  c.width = c.height = 220;
+  const x = c.getContext("2d");
+  x.font = '176px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+  x.textAlign = "center"; x.textBaseline = "middle";
+  x.fillText(ch, 110, 120);
+  emojiCache.set(ch, c);
+  return c;
+}
+
+/* ---------- Placement des images dans une carte ---------- */
+function layoutCard(n, variation, rotate, rnd) {
+  let r = Array.from({ length: n }, () => 1 - variation * 0.55 * rnd());
+  const k = Math.sqrt(0.35 / r.reduce((s, x) => s + x * x, 0));
+  r = r.map((x) => x * k);
+  const p = r.map(() => { const a = rnd() * 6.2832, d = Math.sqrt(rnd()) * 0.6; return [Math.cos(a) * d, Math.sin(a) * d]; });
+  const gap = 0.025, lim = 0.95;
+
+  const relax = (iters) => {
+    for (let t = 0; t < iters; t++) {
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          let dx = p[j][0] - p[i][0], dy = p[j][1] - p[i][1];
+          let d = Math.hypot(dx, dy);
+          if (d < 1e-6) { const a = rnd() * 6.2832; dx = Math.cos(a); dy = Math.sin(a); d = 1e-6; }
+          const min = r[i] + r[j] + gap;
+          if (d < min) {
+            const push = (min - d) / 2, ux = dx / d, uy = dy / d;
+            p[i][0] -= ux * push; p[i][1] -= uy * push;
+            p[j][0] += ux * push; p[j][1] += uy * push;
+          }
+        }
+        const d0 = Math.hypot(p[i][0], p[i][1]);
+        if (d0 + r[i] > lim) { const f = Math.max(lim - r[i], 0) / d0; p[i][0] *= f; p[i][1] *= f; }
+      }
+    }
+  };
+  const slack = (extraGap) => {
+    let s = Infinity;
+    for (let i = 0; i < n; i++) {
+      const d0 = Math.hypot(p[i][0], p[i][1]);
+      s = Math.min(s, (lim - d0) / r[i]);
+      for (let j = i + 1; j < n; j++) {
+        s = Math.min(s, Math.hypot(p[j][0] - p[i][0], p[j][1] - p[i][1]) / (r[i] + r[j] + extraGap));
+      }
+    }
+    return s;
+  };
+  for (let round = 0; round < 14; round++) {
+    relax(60);
+    const s = slack(gap);
+    if (s > 1) r = r.map((x) => x * (1 + (s - 1) * 0.6));
+  }
+  relax(150);
+  const s = slack(0);
+  if (s < 1) r = r.map((x) => x * s * 0.99);
+  return p.map((pos, i) => ({ x: pos[0], y: pos[1], r: r[i], rot: rotate ? rnd() * 6.2832 : 0 }));
+}
+
+/* ---------- Dessin d’une carte ---------- */
+function srcSize(src) {
+  return [src.naturalWidth || src.width || 300, src.naturalHeight || src.height || 300];
+}
+function renderCard(canvas, items, size, opts = {}) {
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, size, size);
+  if (opts.pageBg) { ctx.fillStyle = opts.pageBg; ctx.fillRect(0, 0, size, size); }
+  const c = size / 2, R = c - Math.max(2, size * 0.006);
+  ctx.beginPath(); ctx.arc(c, c, R, 0, Math.PI * 2);
+  ctx.fillStyle = "#fff"; ctx.fill();
+  ctx.save(); ctx.clip();
+  for (const it of items) {
+    if (!it.src) continue;
+    const [w, h] = srcSize(it.src);
+    const scale = (2 * it.r * R) / Math.hypot(w, h);
+    ctx.save();
+    ctx.translate(c + it.x * R, c + it.y * R);
+    ctx.rotate(it.rot);
+    ctx.drawImage(it.src, (-w * scale) / 2, (-h * scale) / 2, w * scale, h * scale);
+    ctx.restore();
+  }
+  ctx.restore();
+  if (opts.border) {
+    ctx.beginPath(); ctx.arc(c, c, R, 0, Math.PI * 2);
+    ctx.lineWidth = Math.max(1.5, size * 0.006);
+    ctx.strokeStyle = "#1c2a48"; ctx.stroke();
+  }
+}
+
+/* ---------- État ---------- */
+const state = { images: [], plan: null };
+const el = {
+  files: $("files"), drop: $("drop"), chips: $("chips"), count: $("count"),
+  n: $("n"), cards: $("cards"), fill: $("fill"), rotate: $("rotate"), variation: $("variation"),
+  seed: $("seed"), shuffle: $("shuffle"), classic: $("classic"),
+  diam: $("diam"), border: $("border"), pdf: $("pdf"), zip: $("zip"),
+  status: $("status"), grid: $("grid"),
+};
+
+/* Sélecteur du nombre d’images par carte */
+Object.keys(FIELD_DEFS).map(Number).forEach((q) => {
+  const n = q + 1, max = n * n - n + 1;
+  const o = document.createElement("option");
+  o.value = n; o.textContent = `${n} images par carte (jusqu’à ${max} cartes)`;
+  el.n.appendChild(o);
+});
+el.n.value = 8;
+const maxFor = (n) => n * n - n + 1;
+function syncCardsInput() {
+  const max = maxFor(+el.n.value);
+  el.cards.max = max; el.cards.value = max;
+}
+syncCardsInput();
+
+/* ---------- Images importées ---------- */
+async function addFiles(fileList) {
+  for (const f of fileList) {
+    if (!f.type.startsWith("image/")) continue;
+    const img = new Image();
+    img.src = URL.createObjectURL(f);
+    try { await img.decode(); } catch { continue; }
+    state.images.push({ img, name: f.name, url: img.src });
+  }
+  renderChips(); schedule();
+}
+function renderChips() {
+  el.chips.innerHTML = "";
+  state.images.forEach((it, i) => {
+    const d = document.createElement("div");
+    d.className = "chip";
+    const im = document.createElement("img");
+    im.src = it.url; im.alt = it.name; im.title = it.name;
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = "×"; b.setAttribute("aria-label", `Retirer ${it.name}`);
+    b.onclick = () => { state.images.splice(i, 1); renderChips(); schedule(); };
+    d.append(im, b); el.chips.appendChild(d);
+  });
+  const n = state.images.length;
+  el.count.innerHTML = n
+    ? `${n} image${n > 1 ? "s" : ""} chargée${n > 1 ? "s" : ""}. <button class="linkbtn" id="clear" type="button">Tout retirer</button>`
+    : "Aucune image pour l’instant.";
+  const clr = $("clear");
+  if (clr) clr.onclick = () => { state.images = []; renderChips(); schedule(); };
+}
+el.files.addEventListener("change", () => { addFiles(el.files.files); el.files.value = ""; });
+el.drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); el.files.click(); } });
+["dragenter", "dragover"].forEach((ev) => el.drop.addEventListener(ev, (e) => { e.preventDefault(); el.drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((ev) => el.drop.addEventListener(ev, (e) => { e.preventDefault(); el.drop.classList.remove("over"); }));
+el.drop.addEventListener("drop", (e) => addFiles(e.dataTransfer.files));
+
+/* ---------- Génération du jeu ---------- */
+function generate() {
+  const n = +el.n.value, q = n - 1, max = maxFor(n);
+  const K = Math.max(2, Math.min(max, Math.floor(+el.cards.value) || max));
+  const seed = Math.max(1, Math.floor(+el.seed.value) || 1);
+  const rnd = rng32(seed);
+  const variation = +el.variation.value / 100;
+
+  const lines = shuffle(buildPlane(q), rnd).slice(0, K);
+  const used = shuffle([...new Set(lines.flat())], rnd);
+  const needed = used.length;
+  const have = state.images.length;
+  const missing = Math.max(0, needed - have);
+  const fill = el.fill.checked;
+
+  const status = [];
+  status.push(`<p><b>${K} cartes</b>, ${n} images par carte, ${needed} images différentes nécessaires.</p>`);
+
+  if (missing > 0 && !fill) {
+    status.push(`<p class="warn">Il manque ${missing} image${missing > 1 ? "s" : ""} (${have} sur ${needed}). Ajoute des images ou active les emojis de secours.</p>`);
+    el.status.innerHTML = status.join("");
+    el.grid.innerHTML = "";
+    state.plan = null; setExportEnabled(false);
+    return;
+  }
+  if (needed > EMOJIS.length + have && missing > 0) {
+    status.push(`<p class="warn">Trop d’images manquantes pour les emojis disponibles. Ajoute-en quelques-unes.</p>`);
+    el.status.innerHTML = status.join("");
+    el.grid.innerHTML = ""; state.plan = null; setExportEnabled(false);
+    return;
+  }
+
+  const pool = shuffle(EMOJIS, rnd);
+  const source = new Map();
+  used.forEach((pt, i) => {
+    if (i < have) source.set(pt, state.images[i].img);
+    else source.set(pt, emojiImage(pool[i - have]));
+  });
+  if (missing > 0) status.push(`<p>${have} image${have > 1 ? "s" : ""} importée${have > 1 ? "s" : ""}, ${missing} complétée${missing > 1 ? "s" : ""} par des emojis.</p>`);
+  if (have > needed) status.push(`<p class="warn">${have - needed} image${have - needed > 1 ? "s" : ""} non utilisée${have - needed > 1 ? "s" : ""} : augmente le nombre de cartes pour en profiter.</p>`);
+
+  // Vérification : deux cartes ont toujours exactement 1 image commune
+  let valid = true;
+  const sets = lines.map((l) => new Set(l));
+  for (let i = 0; i < K && valid; i++) for (let j = i + 1; j < K; j++) {
+    let c = 0; for (const pt of lines[j]) if (sets[i].has(pt)) c++;
+    if (c !== 1) { valid = false; break; }
+  }
+  status.push(valid
+    ? `<p class="ok">Vérifié : deux cartes quelconques ont exactement une image en commun.</p>`
+    : `<p class="warn">Erreur de construction du jeu.</p>`);
+  el.status.innerHTML = status.join("");
+
+  const cards = lines.map((pts, ci) => {
+    const r2 = rng32(seed * 7919 + ci * 104729);
+    const items = layoutCard(n, variation, el.rotate.checked, r2);
+    shuffle(pts, r2).forEach((pt, i) => { items[i].src = source.get(pt); });
+    return items;
+  });
+  state.plan = { cards, n, K };
+  setExportEnabled(true);
+
+  const frag = document.createDocumentFragment();
+  cards.forEach((items, i) => {
+    const cv = document.createElement("canvas");
+    cv.setAttribute("role", "img"); cv.setAttribute("aria-label", `Carte ${i + 1}`);
+    renderCard(cv, items, 380, { border: el.border.checked });
+    frag.appendChild(cv);
+  });
+  el.grid.replaceChildren(frag);
+}
+function setExportEnabled(on) { el.pdf.disabled = el.zip.disabled = !on; }
+let timer;
+function schedule() { clearTimeout(timer); timer = setTimeout(generate, 120); }
+
+el.n.addEventListener("change", () => { syncCardsInput(); schedule(); });
+["cards", "fill", "rotate", "variation", "seed", "border"].forEach((k) => el[k].addEventListener("input", schedule));
+el.shuffle.addEventListener("click", () => { el.seed.value = Math.floor(Math.random() * 999999) + 1; generate(); });
+el.classic.addEventListener("click", () => { el.n.value = 8; el.cards.value = 55; generate(); });
+
+/* ---------- Exports ---------- */
+function download(blob, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+async function withProgress(btn, label, fn) {
+  const old = btn.textContent;
+  el.pdf.disabled = el.zip.disabled = true;
+  try { await fn((i, total) => { btn.textContent = `${label} ${i}/${total}`; }); }
+  catch (e) { alert("L’export a échoué : " + e.message); }
+  btn.textContent = old; el.pdf.disabled = el.zip.disabled = false;
+}
+
+el.pdf.addEventListener("click", () => withProgress(el.pdf, "Création du PDF", async (progress) => {
+  if (!window.jspdf) throw new Error("la bibliothèque jsPDF n’a pas pu être chargée (connexion ?).");
+  const { cards } = state.plan;
+  const d = Math.min(190, Math.max(30, +el.diam.value || 80)), gap = 3, W = 210, H = 297, margin = 10;
+  const cols = Math.max(1, Math.floor((W - 2 * margin + gap) / (d + gap)));
+  const rows = Math.max(1, Math.floor((H - 2 * margin + gap) / (d + gap)));
+  const perPage = cols * rows;
+  const x0 = (W - (cols * d + (cols - 1) * gap)) / 2;
+  const y0 = (H - (rows * d + (rows - 1) * gap)) / 2;
+  const doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
+  const cv = document.createElement("canvas");
+  for (let i = 0; i < cards.length; i++) {
+    if (i > 0 && i % perPage === 0) doc.addPage();
+    const k = i % perPage, col = k % cols, row = Math.floor(k / cols);
+    renderCard(cv, cards[i], 1000, { pageBg: "#fff" });
+    const x = x0 + col * (d + gap), y = y0 + row * (d + gap);
+    doc.addImage(cv.toDataURL("image/jpeg", 0.92), "JPEG", x, y, d, d);
+    if (el.border.checked) { doc.setDrawColor(40); doc.setLineWidth(0.25); doc.circle(x + d / 2, y + d / 2, d / 2 - 0.1); }
+    progress(i + 1, cards.length);
+    await pause();
+  }
+  doc.save("dobble.pdf");
+}));
+
+el.zip.addEventListener("click", () => withProgress(el.zip, "Création du zip", async (progress) => {
+  if (!window.JSZip) throw new Error("la bibliothèque JSZip n’a pas pu être chargée (connexion ?).");
+  const { cards } = state.plan;
+  const zip = new window.JSZip();
+  const cv = document.createElement("canvas");
+  const pad = String(cards.length).length;
+  for (let i = 0; i < cards.length; i++) {
+    renderCard(cv, cards[i], 1200, { border: el.border.checked });
+    const blob = await new Promise((r) => cv.toBlob(r, "image/png"));
+    zip.file(`carte_${String(i + 1).padStart(pad, "0")}.png`, blob);
+    progress(i + 1, cards.length);
+    await pause();
+  }
+  download(await zip.generateAsync({ type: "blob" }), "dobble_cartes.zip");
+}));
+
+/* ---------- Logo vivant ---------- */
+function drawLogo() {
+  const rnd = rng32(Math.floor(Math.random() * 1e9));
+  const pool = shuffle(EMOJIS, rnd);
+  const items = layoutCard(8, 0.5, true, rnd);
+  items.forEach((it, i) => { it.src = emojiImage(pool[i]); });
+  renderCard($("logo"), items, 192, { border: false });
+}
+$("logo").addEventListener("click", drawLogo);
+$("logo").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); drawLogo(); } });
+
+renderChips();
+drawLogo();
+generate();
+</script>
+</body>
+</html>
